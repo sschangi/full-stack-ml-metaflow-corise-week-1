@@ -41,6 +41,7 @@ class RF_Flow(FlowSpec):
         from sklearn.model_selection import cross_val_score
 
         self.scores = cross_val_score(self.clf, self.X, self.y, cv=5)
+        print(self.scores)
         self.next(self.end)
 
     @step

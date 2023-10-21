@@ -35,7 +35,7 @@ def labeling_helper(row):
 labeling_function = lambda row: labeling_helper(row)
 
 
-class BaselineNLPFlow(FlowSpec):
+class GoodFirstModelNLPFlow(FlowSpec):
     # We can define input parameters to a Flow using Parameters
     # More info can be found here https://docs.metaflow.org/metaflow/basics#how-to-define-parameters-for-flows
     split_size = Parameter("split-sz", default=0.2)
@@ -75,50 +75,40 @@ class BaselineNLPFlow(FlowSpec):
         print(f"num of rows in train set: {self.traindf.shape[0]}")
         print(f"num of rows in validation set: {self.valdf.shape[0]}")
 
-        self.next(self.baseline)
+        self.next(self.first_good_model)
 
     @step
-    def baseline(self):
-        "Compute the baseline"
-
-        ### TODO: Fit and score a baseline model on the data, log the acc and rocauc as artifacts.
-
+    def first_good_model(self):
         from sklearn.feature_extraction.text import TfidfVectorizer
-        from sklearn.linear_model import LogisticRegression
         from sklearn.metrics import accuracy_score, roc_auc_score
         from sklearn.pipeline import Pipeline
+        import xgboost as xgb
 
-        # Create a TF-IDF vectorizer and a logistic regression classifier
         vectorizer = TfidfVectorizer(max_features=10000)
-        classifier = LogisticRegression()
+        classifier = xgb.XGBClassifier(
+            n_estimators=100, max_depth=3, learning_rate=0.1
+        )
 
-        # Create a pipeline for training
         model = Pipeline([
             ('vectorizer', vectorizer),
             ('classifier', classifier)
         ])
 
-        # Fit the model on the training data
         model.fit(self.traindf['review'], self.traindf['label'])
 
-        # Make predictions on the validation set
         self.predictions = model.predict(self.valdf['review'])
-
-        # Calculate accuracy and ROC AUC
-        self.base_acc = 0.0
-        self.base_rocauc = 0.0
 
         self.base_acc = accuracy_score(self.valdf['label'], self.predictions)
         self.base_rocauc = roc_auc_score(self.valdf['label'], self.predictions)
 
         self.next(self.end)
-
+        
     @card(
         type="corise"
     )  # TODO: after you get the flow working, chain link on the left side nav to open your card!
     @step
     def end(self):
-        msg = "Baseline Accuracy: {}\nBaseline AUC: {}"
+        msg = "GoodFirst Model Accuracy: {}\nGoodFirst Model AUC: {}"
         print(msg.format(round(self.base_acc, 3), round(self.base_rocauc, 3)))
 
         current.card.append(Markdown("# Womens Clothing Review Results"))
@@ -142,4 +132,4 @@ class BaselineNLPFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    BaselineNLPFlow()
+    GoodFirstModelNLPFlow()
